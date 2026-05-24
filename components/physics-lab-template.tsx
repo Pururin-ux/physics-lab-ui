@@ -9,6 +9,8 @@ import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
 import { InteractiveBackground } from "@/components/interactive-background"
 import { Mascot, FloatingMascot } from "@/components/mascot"
+import { courseModules, courseProgress } from "@/src/content/course"
+import type { CourseModuleStatus, ProgressSkillStatus } from "@/src/types/course"
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PHYSICSLAB - INTERACTIVE EDUCATIONAL PLATFORM UI TEMPLATE
@@ -685,17 +687,6 @@ function SliderControl({
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ModulesSection() {
-  const modules = [
-    { id: 0, title: "Физический язык", topics: 8, progress: 100, icon: "🔧", status: "complete" },
-    { id: 1, title: "Измерения", topics: 5, progress: 100, icon: "📏", status: "complete" },
-    { id: 2, title: "Механика: основы", topics: 12, progress: 75, icon: "🚗", status: "active" },
-    { id: 3, title: "Силы", topics: 10, progress: 30, icon: "💪", status: "active" },
-    { id: 4, title: "Энергия и импульс", topics: 8, progress: 0, icon: "⚡", status: "locked" },
-    { id: 5, title: "МКТ", topics: 7, progress: 0, icon: "🔬", status: "locked" },
-    { id: 6, title: "Термодинамика", topics: 6, progress: 0, icon: "🔥", status: "locked" },
-    { id: 7, title: "Электричество", topics: 12, progress: 0, icon: "🔌", status: "locked" },
-  ]
-  
   return (
     <section className="py-20 px-4" id="modules">
       <div className="max-w-7xl mx-auto">
@@ -713,8 +704,15 @@ function ModulesSection() {
         </div>
         
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {modules.map((module) => (
-            <ModuleCard key={module.id} {...module} />
+          {courseModules.map((module) => (
+            <ModuleCard
+              key={module.slug}
+              title={module.title}
+              topicCount={module.topicCount}
+              progress={module.progress}
+              icon={module.icon}
+              status={module.status}
+            />
           ))}
         </div>
       </div>
@@ -722,13 +720,27 @@ function ModulesSection() {
   )
 }
 
-function ModuleCard({ title, topics, progress, icon, status }: { title: string; topics: number; progress: number; icon: string; status: string }) {
+function ModuleCard({
+  title,
+  topicCount,
+  progress,
+  icon,
+  status,
+}: {
+  title: string
+  topicCount: number
+  progress: number
+  icon: string
+  status: CourseModuleStatus
+}) {
   const isLocked = status === "locked"
+  const isDraft = status === "draft"
   const isComplete = status === "complete"
+  const isUnavailable = isLocked || isDraft
   
   return (
     <Card className={`bg-[#151821] border-[#27272a] transition-all duration-300 ${
-      isLocked ? "opacity-60" : "hover:border-[#ffd84d]/30 cursor-pointer"
+      isUnavailable ? "opacity-60" : "hover:border-[#ffd84d]/30 cursor-pointer"
     }`}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-4">
@@ -743,10 +755,15 @@ function ModuleCard({ title, topics, progress, icon, status }: { title: string; 
               <span className="text-xs">🔒</span>
             </div>
           )}
+          {isDraft && (
+            <div className="w-6 h-6 rounded-full bg-[#27272a] flex items-center justify-center">
+              <span className="text-xs">📝</span>
+            </div>
+          )}
         </div>
         
         <h3 className="font-semibold mb-1">{title}</h3>
-        <p className="text-sm text-[#71717a] mb-4">{topics} тем</p>
+        <p className="text-sm text-[#71717a] mb-4">{topicCount} тем</p>
         
         <div className="space-y-2">
           <div className="flex justify-between text-xs">
@@ -1148,20 +1165,7 @@ function QuizDemoSection() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ProgressSection() {
-  const skills = [
-    { name: "Единицы СИ", progress: 100, status: "mastered" },
-    { name: "Графики x(t)", progress: 85, status: "review" },
-    { name: "Графики v(t)", progress: 60, status: "training" },
-    { name: "Ускорение", progress: 40, status: "learning" },
-    { name: "Законы Ньютона", progress: 15, status: "learning" },
-  ]
-  
-  const achievements = [
-    { icon: "🎯", name: "Первый квиз", unlocked: true },
-    { icon: "🔥", name: "3 дня подряд", unlocked: true },
-    { icon: "⚡", name: "10 симуляций", unlocked: true },
-    { icon: "🏆", name: "Босс механики", unlocked: false },
-  ]
+  const { activeModuleTitle, skills, stats, achievements, dailyGoal } = courseProgress
   
   return (
     <section className="py-20 px-4 bg-[#0e1018]" id="progress">
@@ -1184,11 +1188,16 @@ function ProgressSection() {
           <div className="lg:col-span-2">
             <Card className="bg-[#151821] border-[#27272a]">
               <CardHeader>
-                <CardTitle className="text-lg">Механика</CardTitle>
+                <CardTitle className="text-lg">{activeModuleTitle}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {skills.map((skill, i) => (
-                  <SkillBar key={i} {...skill} />
+                {skills.map((skill) => (
+                  <SkillBar
+                    key={skill.id}
+                    name={skill.name}
+                    progress={skill.progress}
+                    status={skill.status}
+                  />
                 ))}
               </CardContent>
             </Card>
@@ -1200,14 +1209,16 @@ function ProgressSection() {
             <Card className="bg-[#151821] border-[#27272a]">
               <CardContent className="p-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-[#ffd84d]">847</div>
-                    <div className="text-sm text-[#71717a]">XP</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-[#22c55e]">12</div>
-                    <div className="text-sm text-[#71717a]">дней streak</div>
-                  </div>
+                  {stats.map((stat) => (
+                    <div className="text-center" key={stat.id}>
+                      <div className={`text-3xl font-bold ${
+                        stat.tone === "success" ? "text-[#22c55e]" : "text-[#ffd84d]"
+                      }`}>
+                        {stat.value}
+                      </div>
+                      <div className="text-sm text-[#71717a]">{stat.label}</div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -1221,9 +1232,9 @@ function ProgressSection() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
-                {achievements.map((a, i) => (
+                {achievements.map((a) => (
                   <div 
-                    key={i}
+                    key={a.id}
                     className={`p-3 rounded-lg border text-center ${
                       a.unlocked
                         ? "bg-[#0b0d12] border-[#27272a]"
@@ -1242,12 +1253,12 @@ function ProgressSection() {
               <CardContent className="p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <Flame className="w-5 h-5 text-[#ffd84d]" />
-                  <span className="font-medium">Цель на сегодня</span>
+                  <span className="font-medium">{dailyGoal.title}</span>
                 </div>
-                <Progress value={60} className="h-2 bg-[#27272a] mb-2" />
+                <Progress value={dailyGoal.progress} className="h-2 bg-[#27272a] mb-2" />
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#a1a1aa]">3 из 5 задач</span>
-                  <span className="text-[#ffd84d]">60%</span>
+                  <span className="text-[#a1a1aa]">{dailyGoal.completedTasks} из {dailyGoal.totalTasks} задач</span>
+                  <span className="text-[#ffd84d]">{dailyGoal.progress}%</span>
                 </div>
               </CardContent>
             </Card>
@@ -1258,25 +1269,35 @@ function ProgressSection() {
   )
 }
 
-function SkillBar({ name, progress, status }: { name: string; progress: number; status: string }) {
-  const statusConfig = {
+function SkillBar({
+  name,
+  progress,
+  status,
+}: {
+  name: string
+  progress: number
+  status: ProgressSkillStatus
+}) {
+  const statusConfig: Record<ProgressSkillStatus, { color: string; bg: string; label: string }> = {
     mastered: { color: "text-[#22c55e]", bg: "bg-[#22c55e]", label: "Освоено" },
     review: { color: "text-[#f59e0b]", bg: "bg-[#f59e0b]", label: "Повторить" },
     training: { color: "text-[#3b82f6]", bg: "bg-[#3b82f6]", label: "Тренировка" },
     learning: { color: "text-[#a855f7]", bg: "bg-[#a855f7]", label: "В процессе" },
-  }[status] || { color: "text-[#71717a]", bg: "bg-[#71717a]", label: "" }
+  }
+
+  const currentStatus = statusConfig[status]
   
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{name}</span>
-        <Badge variant="outline" className={`text-xs ${statusConfig.color} border-current`}>
-          {statusConfig.label}
+        <Badge variant="outline" className={`text-xs ${currentStatus.color} border-current`}>
+          {currentStatus.label}
         </Badge>
       </div>
       <div className="h-2 bg-[#27272a] rounded-full overflow-hidden">
         <div 
-          className={`h-full ${statusConfig.bg} transition-all duration-500`}
+          className={`h-full ${currentStatus.bg} transition-all duration-500`}
           style={{ width: `${progress}%` }}
         />
       </div>
